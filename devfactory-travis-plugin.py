@@ -8,14 +8,23 @@ import sys
 import subprocess
 import time
 
+logging.basicConfig(filename='devfactory-travis.log', level=logging.DEBUG)
+PLUGIN_NAME = "Devfactory Dependency Analyser"
+LOGGER_NAME = 'DEVFACTORY_LOGGER'
+
+logger = logging.getLogger(LOGGER_NAME)
+output_handler = logging.StreamHandler(sys.stdout)
+output_handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+output_handler.setFormatter(formatter)
+logger.addHandler(output_handler)
+
 if sys.version[0] == '3':
+    logger.error("Python 3 is not supported by this plugin")
     sys.exit(0)
 
 import urllib2
 
-PLUGIN_NAME = "Devfactory Dependency Analyser"
-LOGGER_NAME = 'DEVFACTORY_LOGGER'
-logger = logging.getLogger(LOGGER_NAME)
 BASE_URL = ""
 POST_API_URL = BASE_URL + '/jobs'
 POLL_API_URL = BASE_URL + '/jobs/%d/summary'  # Add job_id parameter
@@ -50,9 +59,9 @@ def _get_post_data(dependencies):
     post_data['modules'] = modules
     post_data['ci_system'] = "TRAVIS-PLUGIN"
     post_data['protocol'] = "LIST"
-    post_data['travis_job_id'] = os.environ.get("TRAVIS_JOB_ID")
+    post_data['product_version_id'] = os.environ.get("TRAVIS_JOB_ID")
     post_data['build_id'] = os.environ.get("TRAVIS_BUILD_ID")
-    post_data['product_name'] = os.environ.get("TRAVIS_REPO_SLUG")
+    post_data['product_id'] = os.environ.get("TRAVIS_REPO_SLUG")
     post_data['scm_type'] = 'git'
     return post_data
 
@@ -132,10 +141,13 @@ def process():
         return True
 
 if __name__ == '__main__':
+    logger.info("============================")
     logger.info("%s : Starting Analysis " % PLUGIN_NAME)
     if process():
-        logger.info("%s : Analysis Successful! No vulnerable dependencies found" % PLUGIN_NAME)
+        logger.info("%s : Exiting" % PLUGIN_NAME)
+        logger.info("============================")
         sys.exit(0)
     else:
-        logger.info("%s: Analysis Successful! Vulnerable dependencies found! Please fix these libraries" % PLUGIN_NAME)
+        logger.info("%s: Analysis Completed Vulnerable dependencies found! Please fix these libraries" % PLUGIN_NAME)
+        logger.info("============================")
         sys.exit(1)
