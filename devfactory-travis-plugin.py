@@ -26,8 +26,8 @@ if sys.version[0] == '3':
 import urllib2
 
 BASE_URL = "http://aline-cnu-apielast-n7tr7583pqve-1852276545.us-east-1.elb.amazonaws.com"
-POST_API_URL = BASE_URL + '/jobs'
-POLL_API_URL = BASE_URL + '/jobs/%d/summary'  # Add job_id parameter
+POST_API_URL = BASE_URL + '/api/jobs'
+POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
 TIMEOUT = 1200  # Timeout is 20 minutes. Change as per requirement
 POST_REQUEST_RETRY_TIMEOUT = 30  # Wait 30 seconds if post request fails
 START_POLLING_TIMEOUT = 300  # Wait 5 minutes before starting polling for results
