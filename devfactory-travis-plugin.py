@@ -25,7 +25,8 @@ if sys.version[0] == '3':
 
 import urllib2
 
-BASE_URL = "http://aline-cnu-apielast-n7tr7583pqve-1852276545.us-east-1.elb.amazonaws.com"
+# BASE_URL = "http://aline-cnu-apielast-n7tr7583pqve-1852276545.us-east-1.elb.amazonaws.com"
+BASE_URL = "http://localhost:8000"
 POST_API_URL = BASE_URL + '/api/jobs'
 POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
 TIMEOUT = 1200  # Timeout is 20 minutes. Change as per requirement
@@ -75,7 +76,7 @@ def _send_post_request(post_data):
         request.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(request, json.dumps(post_data))
         config = json.load(response)
-        if config['status'] == 'SUCCESS':
+        if config['status'] == 'success':
             return config['data']
         else:
             return None
