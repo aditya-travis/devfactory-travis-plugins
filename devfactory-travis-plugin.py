@@ -67,6 +67,10 @@ def _get_post_data(dependencies):
 
 def _send_post_request(post_data):
     try:
+        logger.info("-------------------")
+        logger.info("Post data is :")
+        logger.info(post_data)
+        logger.info("-------------------")
         request = urllib2.Request(POST_API_URL)
         request.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(request, json.dumps(post_data))
