@@ -123,6 +123,7 @@ def process():
                 return True
 
             # Wait and Poll API for results. Exit if time is up
+            logger.info("Starting sleep")
             time.sleep(START_POLLING_TIMEOUT)
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
             results = False
@@ -135,7 +136,7 @@ def process():
                     logger.warn("%s : Timeout reached! Failed to get results. Exiting Analysis" % PLUGIN_NAME)
                     return True
                 results = _poll_for_results(job)
-                if results is None:
+                if 'error' in results:
                     time.sleep(RESULT_POLL_TIMEOUT)
                 else:
                     logger.info("Received results from server")
