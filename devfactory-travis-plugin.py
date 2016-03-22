@@ -139,7 +139,7 @@ def process():
                 logger.info(results)
                 if 'error' in results:
                     time.sleep(RESULT_POLL_TIMEOUT)
-                elif 'status' in results and results['status'] == 'success'::
+                elif 'status' in results and results['status'] == 'success':
                     logger.info("Received results from server")
                     logger.info(results)
                     if results['vulnerable_libraries'] >= 0:
