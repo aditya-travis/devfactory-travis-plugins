@@ -126,19 +126,22 @@ def process():
             time.sleep(START_POLLING_TIMEOUT)
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
             results = False
-
+            
             while results is False:
+                logger.info("Polling DB results for count : ")
                 if (datetime.now() - start_time).seconds > TIMEOUT:
                     logger.warn("%s : Timeout reached! Failed to get results. Exiting Analysis" % PLUGIN_NAME)
                     return True
                 results = _poll_for_results(job)
                 if results is None:
                     time.sleep(RESULT_POLL_TIMEOUT)
-                elif results['vulnerable_libraries'] >= 0:
-                    _print_results(results)
-                    return False
                 else:
-                    return True
+                    if results['vulnerable_libraries'] >= 0:
+                        _print_results(results)
+                        return False
+                    else:
+                        logger.info("Received results from server. No Vulnerabilities found")
+                        return True            
             return True
 
     except subprocess.CalledProcessError:
