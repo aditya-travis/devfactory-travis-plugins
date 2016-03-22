@@ -138,12 +138,14 @@ def process():
                 if results is None:
                     time.sleep(RESULT_POLL_TIMEOUT)
                 else:
+                    logger.info("Received results from server")
+                    logger.info(results)
                     if results['vulnerable_libraries'] >= 0:
                         _print_results(results)
                         return False
                     else:
                         logger.info("Received results from server. No Vulnerabilities found")
-                        return True            
+                        return True
             return True
 
     except subprocess.CalledProcessError:
