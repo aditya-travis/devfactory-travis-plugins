@@ -135,9 +135,11 @@ def process():
                     logger.warn("%s : Timeout reached! Failed to get results. Exiting Analysis" % PLUGIN_NAME)
                     return True
                 results = _poll_for_results(job)
+                logger.info("results received from server: ")
+                logger.info(results)
                 if 'error' in results:
                     time.sleep(RESULT_POLL_TIMEOUT)
-                else:
+                elif 'status' in results and results['status'] == 'success'::
                     logger.info("Received results from server")
                     logger.info(results)
                     if results['vulnerable_libraries'] >= 0:
