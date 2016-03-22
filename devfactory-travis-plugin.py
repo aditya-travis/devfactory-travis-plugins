@@ -127,8 +127,10 @@ def process():
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
             results = False
             
+            count = 0
             while results is False:
-                logger.info("Polling DB results for count : ")
+                count += 1
+                logger.info("Polling DB results: Attempt %d" % count)
                 if (datetime.now() - start_time).seconds > TIMEOUT:
                     logger.warn("%s : Timeout reached! Failed to get results. Exiting Analysis" % PLUGIN_NAME)
                     return True
