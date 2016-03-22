@@ -34,11 +34,9 @@ START_POLLING_TIMEOUT = 300  # Wait 5 minutes before starting polling for result
 RESULT_POLL_TIMEOUT = 60  # Wait one minute between api polling for results
 
 def _get_dependencies():
-    try:
-        install_command = "mvn install -DskipTests dependency:list"
+    try:        
         command = "mvn dependency:list | sed -ne s/..........// -e /patterntoexclude/d -e s/:compile//p -e s/:runtime//p | sort | uniq"
-        # Getting list of dependencies using Maven
-        output = subprocess.check_output(install_command, shell=True)
+        # Getting list of dependencies using Maven        
         output = subprocess.check_output(command, shell=True)
         dependency_list = output.split("\n")
         dependencies = [':'.join(dependency.split(':')[:2] + [dependency.split(':')[-1]]) for dependency in dependency_list if dependency]
@@ -128,10 +126,9 @@ def process():
             logger.info("Starting sleep")
             time.sleep(START_POLLING_TIMEOUT)
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
-            results = False
-            
+                        
             count = 0
-            while results is False:
+            while True:
                 count += 1
                 logger.info("Polling DB results: Attempt %d" % count)
                 if (datetime.now() - start_time).seconds > TIMEOUT:
