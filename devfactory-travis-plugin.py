@@ -112,6 +112,8 @@ def process():
             retry_count = 0
             while retry_count < 3:
                 job = _send_post_request(post_data)
+                logger.info("Job id for newly created job is: ")
+                logger.info(job['id'])
                 if job:
                     break
                 retry_count += 1
