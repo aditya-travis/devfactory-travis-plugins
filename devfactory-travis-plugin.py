@@ -35,8 +35,10 @@ RESULT_POLL_TIMEOUT = 60  # Wait one minute between api polling for results
 
 def _get_dependencies():
     try:
+        install_command = "mvn install -DskipTests dependency:list"
         command = "mvn dependency:list | sed -ne s/..........// -e /patterntoexclude/d -e s/:compile//p -e s/:runtime//p | sort | uniq"
         # Getting list of dependencies using Maven
+        output = subprocess.check_output(install_command, shell=True)
         output = subprocess.check_output(command, shell=True)
         dependency_list = output.split("\n")
         dependencies = [':'.join(dependency.split(':')[:2] + [dependency.split(':')[-1]]) for dependency in dependency_list if dependency]
@@ -92,7 +94,7 @@ def _poll_for_results(job):
 
 def _print_results(results):
     logger.info("=====================================")
-    logger.warn("Found Libraries with Security Vulnerabilities: ")
+    logger.warn("Found Libraries with Security Vulnerabilities!")
     logger.warn("%d Libraries with High Security Vulnerabilities" % results['security_high'])
     logger.warn("%d Libraries with Medium Security Vulnerabilities" % results['security_medium'])
     logger.info("=====================================")
