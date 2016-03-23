@@ -25,6 +25,8 @@ if sys.version[0] == '3':
 
 import urllib2
 
+install_command = os.environ.get('DF_INSTALL_COMMAND')
+DEFAULT_INSTALL_COMMAND = 'mvn install -DskipTests'
 BASE_URL = "http://aline-cnu-apielast-n7tr7583pqve-1852276545.us-east-1.elb.amazonaws.com"
 POST_API_URL = BASE_URL + '/api/jobs'
 POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
@@ -33,16 +35,32 @@ POST_REQUEST_RETRY_TIMEOUT = 30  # Wait 30 seconds if post request fails
 START_POLLING_TIMEOUT = 300  # Wait 5 minutes before starting polling for results
 RESULT_POLL_TIMEOUT = 60  # Wait one minute between api polling for results
 
+def _get_dependency_list():
+    list_command = "mvn dependency:list -DincludeScope=runtime > df_list_output.txt"
+    command = "cat df_list_output.txt | sed -ne s/..........// -e /patterntoexclude/d -e s/:compile//p -e s/:runtime//p | sort | uniq"
+    # Getting list of dependencies using Maven
+    subprocess.check_output(list_command, shell=True)
+    output = subprocess.check_output(command, shell=True)
+    dependency_list = output.split("\n")
+    dependencies = [':'.join(dependency.split(':')[:2] + [dependency.split(':')[-1]]) for dependency in dependency_list if dependency]
+    return dependencies
+
 def _get_dependencies():
-    try:        
-        command = "mvn dependency:list | sed -ne s/..........// -e /patterntoexclude/d -e s/:compile//p -e s/:runtime//p | sort | uniq"
-        # Getting list of dependencies using Maven        
-        output = subprocess.check_output(command, shell=True)
-        dependency_list = output.split("\n")
-        dependencies = [':'.join(dependency.split(':')[:2] + [dependency.split(':')[-1]]) for dependency in dependency_list if dependency]
-        return dependencies
+    try:
+        return _get_dependency_list()
     except:
-        return False
+        try:
+            logger.warn("Dependency list command failed to execute, Trying to install and rerun")
+            if install_command:
+                logger.info("Running user provided custom installation command")
+                subprocess.check_output(install_command, shell=True)
+            else:
+                subprocess.check_output(DEFAULT_INSTALL_COMMAND, shell=True)
+                logger.info("Running default installation command")
+            logger.info("Trying to extract dependencies using dependency list after install")
+            return _get_dependency_list()
+        except:
+            return None
 
 def _get_post_data(dependencies):
     # Create data for POST request
@@ -67,15 +85,11 @@ def _get_post_data(dependencies):
 
 def _send_post_request(post_data):
     try:
-        logger.info("-------------------")
-        logger.info("Post data is :")
-        logger.info(json.dumps(post_data))
-        logger.info("-------------------")
         request = urllib2.Request(POST_API_URL)
         request.add_header('Content-Type', 'application/json')
         response = urllib2.urlopen(request, json.dumps(post_data))
         config = json.load(response)
-        if config['status'] == 'success':
+        if 'status' in config and config['status'] == 'success':
             return config['data']
         else:
             return None
@@ -86,7 +100,11 @@ def _poll_for_results(job):
     try:
         request = urllib2.Request(POLL_API_URL % job['id'])
         response = urllib2.urlopen(request)
-        return json.load(response)
+        config = json.load(response)
+        if 'status' in config and config['status'] == 'success':
+            return config['data']
+        else:
+            return None
     except:
         return None
 
@@ -104,16 +122,13 @@ def process():
         dependencies = _get_dependencies()
         if dependencies:
             post_data = _get_post_data(dependencies)
-            logger.info("Successfully found dependencies for Analysis")
-            logger.info("Sending dependencies to server for processing")
-
+            logger.info("Successfully found dependencies for Analysis. Sending dependencies to server for processing")
             # Send POST request
             job = None
             retry_count = 0
             while retry_count < 3:
                 job = _send_post_request(post_data)
-                logger.info("Job id for newly created job is: ")
-                logger.info(job['id'])
+                logger.info("Job id for newly created job is: %d" % job['id'])
                 if job:
                     break
                 retry_count += 1
@@ -121,12 +136,9 @@ def process():
             if retry_count >= 3 or job is None:
                 logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
                 return True
-
             # Wait and Poll API for results. Exit if time is up
-            logger.info("Starting sleep")
-            time.sleep(START_POLLING_TIMEOUT)
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
-                        
+            time.sleep(START_POLLING_TIMEOUT)
             count = 0
             while True:
                 count += 1
@@ -135,12 +147,8 @@ def process():
                     logger.warn("%s : Timeout reached! Failed to get results. Exiting Analysis" % PLUGIN_NAME)
                     return True
                 results = _poll_for_results(job)
-                logger.info("results received from server: ")
-                logger.info(results)
-                if 'error' in results:
-                    time.sleep(RESULT_POLL_TIMEOUT)
-                elif 'status' in results and results['status'] == 'success':
-                    logger.info("Received results from server")
+                if results:
+                    logger.info("Results received from server: ")
                     logger.info(results)
                     if results['vulnerable_libraries'] >= 0:
                         _print_results(results)
@@ -148,11 +156,15 @@ def process():
                     else:
                         logger.info("Received results from server. No Vulnerabilities found")
                         return True
+                time.sleep(RESULT_POLL_TIMEOUT)
             return True
-
+        else:
+            logger.info("Failed to get list of dependencies for the project")
     except subprocess.CalledProcessError:
+        logger.exception("Error in subprocess")
         return True
     except:
+        logger.exception("Unknown Error in DF Analyser")
         return True
 
 if __name__ == '__main__':
