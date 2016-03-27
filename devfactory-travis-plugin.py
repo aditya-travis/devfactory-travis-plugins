@@ -156,7 +156,7 @@ def process():
                 if results:
                     logger.info("Results received from server: ")
                     logger.info(results)
-                    if results['vulnerable_libraries'] >= 0:
+                    if results['vulnerable_libraries'] > 0:
                         _print_results(results)
                         return False
                     else:
