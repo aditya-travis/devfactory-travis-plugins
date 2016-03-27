@@ -91,16 +91,18 @@ def _send_post_request(post_data):
     logger.info("Post data is : ")
     logger.info(post_data)
     while retry_count < 3:
+        retry_count += 1
         try:
             request = urllib2.Request(POST_API_URL)
             request.add_header('Content-Type', 'application/json')
             response = urllib2.urlopen(request, json.dumps(post_data))
             config = json.load(response)
+            logger.info("return data is: ")
+            logger.info(config)
             if 'status' in config and config['status'] == SUCCESS_MESSAGE:
                 return config['data']
         except:
             logger.info("Could not complete job creation post request. Retrying!!")
-            retry_count += 1
             time.sleep(POST_REQUEST_RETRY_TIMEOUT)
     if retry_count >= 3 or job is None:
         logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
