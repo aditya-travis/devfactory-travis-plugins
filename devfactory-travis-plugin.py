@@ -31,6 +31,7 @@ BASE_URL = "http://aline-cnu-apielast-1qrfta1b7d7r3-412496036.us-east-1.elb.amaz
 
 POST_API_URL = BASE_URL + '/api/jobs'
 POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
+SUCCESS_MESSAGE = 'SUCCESS'
 TIMEOUT = 1200  # Timeout is 20 minutes. Change as per requirement
 POST_REQUEST_RETRY_TIMEOUT = 10  # Wait 30 seconds if post request fails
 START_POLLING_TIMEOUT = 20  # Wait 30 seconds before starting polling for results
@@ -93,7 +94,7 @@ def _send_post_request(post_data):
             request.add_header('Content-Type', 'application/json')
             response = urllib2.urlopen(request, json.dumps(post_data))
             config = json.load(response)
-            if 'status' in config and config['status'] == 'success':
+            if 'status' in config and config['status'] == SUCCESS_MESSAGE:
                 return config['data']
             else:
                 return None
@@ -111,7 +112,7 @@ def _poll_for_results(job):
         request = urllib2.Request(POLL_API_URL % job['id'])
         response = urllib2.urlopen(request)
         config = json.load(response)
-        if 'status' in config and config['status'] == 'success':
+        if 'status' in config and config['status'] == SUCCESS_MESSAGE:
             return config['data']
         else:
             return None
