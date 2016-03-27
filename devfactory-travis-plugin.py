@@ -27,13 +27,14 @@ import urllib2
 
 install_command = os.environ.get('DF_INSTALL_COMMAND')
 DEFAULT_INSTALL_COMMAND = 'mvn install -DskipTests'
-BASE_URL = "http://aline-cnu-apielast-n7tr7583pqve-1852276545.us-east-1.elb.amazonaws.com"
+BASE_URL = "http://aline-cnu-apielast-1qrfta1b7d7r3-412496036.us-east-1.elb.amazonaws.com"
+
 POST_API_URL = BASE_URL + '/api/jobs'
 POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
 TIMEOUT = 1200  # Timeout is 20 minutes. Change as per requirement
-POST_REQUEST_RETRY_TIMEOUT = 30  # Wait 30 seconds if post request fails
-START_POLLING_TIMEOUT = 300  # Wait 5 minutes before starting polling for results
-RESULT_POLL_TIMEOUT = 60  # Wait one minute between api polling for results
+POST_REQUEST_RETRY_TIMEOUT = 10  # Wait 30 seconds if post request fails
+START_POLLING_TIMEOUT = 20  # Wait 30 seconds before starting polling for results
+RESULT_POLL_TIMEOUT = 10  # Wait 30 seconds between api polling for results
 
 def _get_dependency_list():
     list_command = "mvn dependency:list -DincludeScope=runtime > df_list_output.txt"
@@ -84,17 +85,26 @@ def _get_post_data(dependencies):
     return post_data
 
 def _send_post_request(post_data):
-    try:
-        request = urllib2.Request(POST_API_URL)
-        request.add_header('Content-Type', 'application/json')
-        response = urllib2.urlopen(request, json.dumps(post_data))
-        config = json.load(response)
-        if 'status' in config and config['status'] == 'success':
-            return config['data']
-        else:
-            return None
-    except:
-        return None
+    retry_count = 0
+    job = None
+    while retry_count < 3:
+        try:
+            request = urllib2.Request(POST_API_URL)
+            request.add_header('Content-Type', 'application/json')
+            response = urllib2.urlopen(request, json.dumps(post_data))
+            config = json.load(response)
+            if 'status' in config and config['status'] == 'success':
+                return config['data']
+            else:
+                return None
+        except:
+            logger.info("Could not complete job creation post request. Retrying!!")
+            retry_count += 1
+            time.sleep(POST_REQUEST_RETRY_TIMEOUT)
+
+    if retry_count >= 3 or job is None:
+        logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
+    return job
 
 def _poll_for_results(job):
     try:
@@ -124,18 +134,11 @@ def process():
             post_data = _get_post_data(dependencies)
             logger.info("Successfully found dependencies for Analysis. Sending dependencies to server for processing")
             # Send POST request
-            job = None
-            retry_count = 0
-            while retry_count < 3:
-                job = _send_post_request(post_data)
-                logger.info("Job id for newly created job is: %d" % job['id'])
-                if job:
-                    break
-                retry_count += 1
-                time.sleep(POST_REQUEST_RETRY_TIMEOUT)
-            if retry_count >= 3 or job is None:
-                logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
+            job = _send_post_request(post_data)
+            if job is None:
+                logger.info("Failed to create job !")
                 return True
+            logger.info("Job id for newly created job is: %d" % job['id'])
             # Wait and Poll API for results. Exit if time is up
             logger.info("%s : Waiting for results from server" % PLUGIN_NAME)
             time.sleep(START_POLLING_TIMEOUT)
