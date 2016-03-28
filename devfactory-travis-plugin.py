@@ -163,9 +163,9 @@ def process():
                         logger.info("Received results from server. No Vulnerabilities found")
                         return True
                 time.sleep(RESULT_POLL_TIMEOUT)
-            return True
         else:
             logger.info("Failed to get list of dependencies for the project")
+        return True
     except subprocess.CalledProcessError:
         logger.exception("Error in subprocess")
         return True
