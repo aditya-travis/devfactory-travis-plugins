@@ -31,8 +31,11 @@ BASE_URL = "http://aline-cnu-apielast-1qrfta1b7d7r3-412496036.us-east-1.elb.amaz
 
 POST_API_URL = BASE_URL + '/api/jobs'
 POLL_API_URL = BASE_URL + '/api/jobs/%d/summary'  # Add job_id parameter
+JOBS_API_URL = BASE_URL + '/api/jobs/%d'  # Add job_id parameter
 SUCCESS_MESSAGE = 'success'
-TIMEOUT = 1200  # Timeout is 20 minutes. Change as per requirement
+FAILURE_MESSAGE = 'FAILURE'
+STATUS = 'status'
+TIMEOUT = 600  # Timeout is 10 minutes. Change as per requirement
 POST_REQUEST_RETRY_TIMEOUT = 10  # Wait 30 seconds if post request fails
 START_POLLING_TIMEOUT = 20  # Wait 30 seconds before starting polling for results
 RESULT_POLL_TIMEOUT = 10  # Wait 30 seconds between api polling for results
@@ -66,15 +69,7 @@ def _get_dependencies():
 
 def _get_post_data(dependencies):
     # Create data for POST request
-    modules = [
-                dict(
-                    name=None,
-                    lib_path=None,
-                    source_path=None,
-                    bin_path=None,
-                    gav_list=dependencies
-                )
-            ]
+    modules = [dict(name=None, lib_path=None, source_path=None, bin_path=None, gav_list=dependencies)]
     post_data = {}
     post_data['modules'] = modules
     post_data['ci_system'] = "TRAVIS-PLUGIN"
@@ -85,7 +80,19 @@ def _get_post_data(dependencies):
     post_data['scm_type'] = 'git'
     return post_data
 
-def _send_post_request(post_data):
+def _get_response_data(config):
+    if STATUS in config and config[STATUS].lower() == SUCCESS_MESSAGE:
+        return config['data']
+    else:
+        return None
+
+def _send_get_request(request_url):
+    request = urllib2.Request(request_url)
+    response = urllib2.urlopen(request)
+    config = json.load(response)
+    return _get_response_data(config)
+
+def _send_job_creation_request(post_data):
     retry_count = 0
     job = None
     logger.info("Post data is : ")
@@ -93,29 +100,31 @@ def _send_post_request(post_data):
     while retry_count < 3:
         retry_count += 1
         try:
-            request = urllib2.Request(POST_API_URL)
-            request.add_header('Content-Type', 'application/json')
-            response = urllib2.urlopen(request, json.dumps(post_data))
-            config = json.load(response)
-            logger.info("return data is: ")
-            logger.info(config)
-            if 'status' in config and config['status'].lower() == SUCCESS_MESSAGE:
-                return config['data']
+            job = _send_get_request(POST_API_URL)
+            if job:
+                break
         except:
             logger.info("Could not complete job creation post request. Retrying!!")
             time.sleep(POST_REQUEST_RETRY_TIMEOUT)
     if retry_count >= 3 or job is None:
         logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
-    logger.info(job)
     return job
 
 def _poll_for_results(job):
     try:
-        request = urllib2.Request(POLL_API_URL % job['id'])
-        response = urllib2.urlopen(request)
-        config = json.load(response)
-        if 'status' in config and config['status'].lower() == SUCCESS_MESSAGE:
-            return config['data']
+        request_url = POLL_API_URL % job['id']
+        return _send_get_request(request_url)
+    except:
+        return None
+
+def _get_job_status(job_id):
+    try:
+        request_url = JOBS_API_URL % job_id
+        data = _send_get_request(request_url)
+        logger.info("Job status for job %d" % job_id)
+        logger.info(data)
+        if STATUS in data:
+            return data[STATUS]
         else:
             return None
     except:
@@ -137,7 +146,7 @@ def process():
             post_data = _get_post_data(dependencies)
             logger.info("Successfully found dependencies for Analysis. Sending dependencies to server for processing")
             # Send POST request
-            job = _send_post_request(post_data)
+            job = _send_job_creation_request(post_data)
             if job is None:
                 logger.info("Failed to create job !")
                 return True
@@ -162,6 +171,9 @@ def process():
                     else:
                         logger.info("Received results from server. No Vulnerabilities found")
                         return True
+                elif _get_job_status(job['id']) == FAILURE_MESSAGE:
+                    logger.info("Job processing failed due to server side error!")
+                    break
                 time.sleep(RESULT_POLL_TIMEOUT)
         else:
             logger.info("Failed to get list of dependencies for the project")
