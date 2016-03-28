@@ -81,10 +81,16 @@ def _get_post_data(dependencies):
     return post_data
 
 def _get_response_data(config):
-    if STATUS in config and config[STATUS].lower() == SUCCESS_MESSAGE:
+    if config and STATUS in config and config[STATUS].lower() == SUCCESS_MESSAGE:
         return config['data']
     else:
         return None
+
+def _send_post_request(request_url, post_data):
+    request = urllib2.Request(request_url)
+    request.add_header('Content-Type', 'application/json')
+    response = urllib2.urlopen(request, json.dumps(post_data))
+    return json.load(response)
 
 def _send_get_request(request_url):
     request = urllib2.Request(request_url)
@@ -100,14 +106,17 @@ def _send_job_creation_request(post_data):
     while retry_count < 3:
         retry_count += 1
         try:
-            job = _send_get_request(POST_API_URL)
-            if job:
-                break
+            response = _send_post_request(POST_API_URL, post_data)
+            data = _get_response_data(response)
+            if data:
+                return data
         except:
             logger.info("Could not complete job creation post request. Retrying!!")
             time.sleep(POST_REQUEST_RETRY_TIMEOUT)
     if retry_count >= 3 or job is None:
         logger.warn("%s : Failed to send dependencies to server! Exiting Analysis" % PLUGIN_NAME)
+    logger.info("Newly created job is: ")
+    logger.info(job)
     return job
 
 def _poll_for_results(job):
